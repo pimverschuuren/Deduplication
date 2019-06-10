@@ -1,6 +1,6 @@
 # How to run it
 
-The script NeuralNetwork.py can be run together with the supplied dataset.csv and the following packages:
+The script NeuralNetwork.py can be run on its own with the supplied dataset.csv and the following packages:
 - Python (3.6.8)
 - Numpy (1.16.4)
 - Pandas (0.23.2)
