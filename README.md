@@ -1,3 +1,17 @@
+# How to run it
+
+The script NeuralNetwork.py can be run together with the supplied dataset.csv and the following packages:
+- Python (3.6.8)
+- Numpy (1.16.4)
+- Pandas (0.23.2)
+- Matplotlib (3.0.2)
+- Scipy (1.1.0)
+- Scikit-learn (0.21.2)
+- Keras (2.2.4)
+
+Next to the package the version is given on which the script is tested.
+
+
 # Deduplication
 
 This repository contains a neural network that is build to identify duplicate entries in a dataset. An anonymized dataset is supplied to train and evaluate the model on. Additionally, the similarity functions that were used to model the similarity between two entries are also supplied.
