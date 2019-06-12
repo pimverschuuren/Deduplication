@@ -9,18 +9,17 @@ from helpers import *
 
 
 # Load the data.
-data = read_csvfile('data.csv')
+data = read_csvfile(r'data.csv')
 
-# Build and compile the neural network.
-model = get_NN(data)
+# Build and compile the boosted decision tree.
+model = get_BDT()
 
 # Train and test the model according to a k-fold
 # cross-validation scheme.
-model, p_metrics = train_KFold_NN(5, model, data, 50, 120, 0.5)
-
+model, scores = train_KFold_BDT(5, model, data, 0.5)
 
 # Calculate and print the performance metric averages
 # and standard deviations based on all folds.
-calculate_mean_sd(p_metrics)
+calculate_mean_sd(scores)
 
 
