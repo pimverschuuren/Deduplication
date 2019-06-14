@@ -16,7 +16,7 @@ model = get_BDT()
 
 # Train and test the model according to a k-fold
 # cross-validation scheme.
-model, scores = train_KFold_BDT(5, model, data, 0.5)
+model, scores = train_KFold(5, model, data, 0.5)
 
 # Calculate and print the performance metric averages
 # and standard deviations based on all folds.
