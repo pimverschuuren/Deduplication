@@ -16,7 +16,7 @@ model = get_NN(data)
 
 # Train and test the model according to a k-fold
 # cross-validation scheme.
-model, p_metrics = train_KFold(5, model, data, 0.5)
+model, p_metrics = cross_val_KFold(5, model, data, 0.5)
 
 
 # Calculate and print the performance metric averages

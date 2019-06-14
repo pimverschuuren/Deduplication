@@ -111,11 +111,17 @@ def adam_optimizer(learningrate):
 # into input features and true labels.
 def split_data(data):
 
+    # Get the true labels in the dataset.
     y=data[['duplicate']]
-    
+
+    # Convert the labels to integer type.
     y=y.astype('int32')
+
+    # Get the input features by dropping the ID
+    # and true label columns.
     X=data.drop(['ID','duplicate'], axis=1)
-    
+
+    # Create the right format for the fit.
     y_t = np.arange(y.shape[0], dtype=int)
     X_t = X.values
     
@@ -126,6 +132,37 @@ def split_data(data):
         count = count + 1
 
     return X, y, X_t, y_t
+
+
+# This function plots multiple ROC-curves, their average
+# and standard deviation.
+def plot_ROCs(tprs, mean_fpr, aucs):
+
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+         label='Chance', alpha=.8)
+    
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+    plt.plot(mean_fpr, mean_tpr, color='b',
+             label=r'Mean ROC (AUC = %0.3f $\pm$ %0.3f)' % (mean_auc, std_auc),
+             lw=2, alpha=.8)
+    
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                     label=r'$\pm$ 1 std. dev.')
+    
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver operating characteristic example')
+    plt.legend(loc="lower right")
+    plt.show()
+
 
 
 # Read a comma-seperated csv-file and return it
@@ -142,15 +179,22 @@ def read_csvfile(file_loc):
 # cross-validation scheme, the subjected model, a
 # dataframe that contains the train/test data and a
 # probability threshold.
-def train_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
-    
+def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
+
+    # Get the train/test data in the right format.
     X, y, X_t, y_t = split_data(data)
-    
-    scores = []
-    
+
+    # Make a list for the scores.
+    metric_array = []
+
+    # Create a cross validation object.
     kf = KFold(n_splits=n_folds)
+
+    # Create the folds.
     kf.get_n_splits(X_t)
-    
+
+    # Create the lists for the true positive rate
+    # , the AUC and a linear space for the false positive rate.
     tprs = []
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
@@ -158,172 +202,89 @@ def train_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
     i = 0
     
     # Get the initial weights of the neural network for
-    # resetting in between folds.
+    # resetting the model in between folds.
     if model.__module__ == 'keras.engine.sequential':
         init_weights = model.get_weights()
     
-    for train_index, test_index in kf.split(X):
-        X_train, X_test = X_t[train_index], X_t[test_index]
-        y_train, y_test = y_t[train_index], y_t[test_index]
-    
-
-
-        # Fit the BDT.
-        if model.__module__ == 'sklearn.ensemble.gradient_boosting':
-            fit_model = clone(model)
-            fit_model.fit(X_train, y_train)
-
-        # Fit the NN.
-        elif model.__module__ == 'keras.engine.sequential':
-            
-            # Set the weights to their initial value.
-            model.set_weights(init_weights)
-            model.fit(X_train, y_train, epochs=120, batch_size=60)
-
-        # Exit the program if none of the above models is
-        # passed.
-        else:
-            print('Unknown model passed! Please add a line with the appropriate fit method.')
-            sys.exit()
-            
-        y_prediction = fit_model.predict_proba(X_test)
-        
-        y_pred = np.arange(len(y_prediction), dtype=float)
-        for x in range(len(y_prediction)):
-            y_pred[x] = y_prediction[x,1]
-           
-        # Plot the confusion matrix and accuracy score.
-        
-        score_list = calculate_performance_metrics(y_test, y_pred, prob_threshold)
-           
-        scores.append(score_list)
-              
-        fpr, tpr, thresholds = roc_curve(y_test, y_pred)
-        tprs.append(interp(mean_fpr, fpr, tpr))
-        tprs[-1][0] = 0.0
-        roc_auc = auc(fpr, tpr)
-        aucs.append(roc_auc)
-        plt.plot(fpr, tpr, lw=1, alpha=0.3, label='ROC fold %d (AUC = %0.3f)' % (i, roc_auc))
-           
-        i += 1
-
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
-         label='Chance', alpha=.8)
-    
-    mean_tpr = np.mean(tprs, axis=0)
-    mean_tpr[-1] = 1.0
-    mean_auc = auc(mean_fpr, mean_tpr)
-    std_auc = np.std(aucs)
-    plt.plot(mean_fpr, mean_tpr, color='b',
-             label=r'Mean ROC (AUC = %0.3f $\pm$ %0.3f)' % (mean_auc, std_auc),
-             lw=2, alpha=.8)
-    
-    std_tpr = np.std(tprs, axis=0)
-    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
-    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
-                     label=r'$\pm$ 1 std. dev.')
-    
-    plt.xlim([-0.05, 1.05])
-    plt.ylim([-0.05, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic example')
-    plt.legend(loc="lower right")
-    plt.show()
-    
-    return model, scores
-
-
-# Train and test a passed boosted decision tree model.
-# The arguments define the number of folds for the
-# cross-validation scheme, the subjected model, a
-# dataframe that contains the train/test data and a
-# probability threshold.
-def train_KFold_NN(n_folds, model, data, batch_size, epochs, prob_threshold : float = 0.5):
-
-    # Split the data in input features and true labels.
-    X, y, X_t, y_t = split_data(data)
-
-    # Define an array that will contain the performance
-    # metrics for all the folds.
-    metric_array = []
-
-    print('Module')
-    if model.__module__ == 'keras.engine.sequential':
-        print(model.__module__)
-    
-    # Define a k-fold cross validation object.
-    kf = KFold(n_splits=n_folds)
-
-    # Split the data for k-folds.
-    kf.get_n_splits(X)
-
-
-    # Lists that will contain the true positive rate,
-    # the AUC values and linear space between 0 and 1.
-    tprs = []
-    aucs = []
-    mean_fpr = np.linspace(0, 1, 100)
-    
-    i = 0
-
     # Loop over all the folds.
     for train_index, test_index in kf.split(X):
 
         X_train, X_test = X_t[train_index], X_t[test_index]
         y_train, y_test = y_t[train_index], y_t[test_index]
 
-        
-        model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
-        
-        y_pred = model.predict_proba(X_test)
-        
-        # Plot the confusion matrix and accuracy score.
+        # Define the numpy list that will contain the predicted
+        # duplicate probabilities. 
+        y_pred = np.arange(len(y_test), dtype=float)
+
+        # Fit the BDT.
+        if model.__module__ == 'sklearn.ensemble.gradient_boosting':
+
+            # Get a new unfitted model for the new fold.
+            fit_model = clone(model)
+
+            # Fit on the training data.
+            fit_model.fit(X_train, y_train)
+
+            # Predict on the test data.
+            y_prediction = fit_model.predict_proba(X_test)
+
+            # Put the prediction in a simple list.
+            for x in range(len(y_prediction)):
+                y_pred[x] = y_prediction[x,1]
+            
+        # Fit the NN.
+        elif model.__module__ == 'keras.engine.sequential':
+            
+            # Set the weights of the neural network to
+            # their initial value for a new unfitted model.
+            model.set_weights(init_weights)
+
+            # Fit on the training data. Epochs and batch size
+            # are the result of a grid search.
+            model.fit(X_train, y_train, epochs=120, batch_size=100)
+
+            # Predict on the test data.
+            y_pred = model.predict_proba(X_test)
+            
+            
+        # Exit the program if none of the above models is
+        # passed.
+        else:
+            print('Unknown model passed! Please add a line with the appropriate fit method.')
+            sys.exit()
+
+        # Get the list of performance metrics for this fold.
         metric_list = calculate_performance_metrics(y_test, y_pred, prob_threshold)
-       
+
+        # Put them in the array.
         metric_array.append(metric_list)
-       
+
+        # Calculate the ROC-curve for this fold.
         fpr, tpr, thresholds = roc_curve(y_test, y_pred)
+
+        # Append the ROC-curve of this fold to a list.
         tprs.append(interp(mean_fpr, fpr, tpr))
+
+        # Add a zero point to the array.
         tprs[-1][0] = 0.0
+
+        # Calculate the AUC of the ROC-curve.
         roc_auc = auc(fpr, tpr)
+
+        # Append the AUC to a list.
         aucs.append(roc_auc)
-        plt.plot(fpr, tpr, lw=1, alpha=0.3,
-                label='ROC fold %d (AUC = %0.3f)' % (i, roc_auc))
-       
+
+        # Plot the ROC-curve of this fold.
+        plt.plot(fpr, tpr, lw=1, alpha=0.3, label='ROC fold %d (AUC = %0.3f)' % (i, roc_auc))
+        
         i += 1
-       
-       
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
-         label='Chance', alpha=.8)
 
-    mean_tpr = np.mean(tprs, axis=0)
-    mean_tpr[-1] = 1.0
-    mean_auc = auc(mean_fpr, mean_tpr)
-    std_auc = np.std(aucs)
-    plt.plot(mean_fpr, mean_tpr, color='b',
-             label=r'Mean ROC (AUC = %0.3f $\pm$ %0.3f)' % (mean_auc, std_auc),
-             lw=2, alpha=.8)
-    
-    std_tpr = np.std(tprs, axis=0)
-    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
-    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-    plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
-                     label=r'$\pm$ 1 std. dev.')
-    
-    plt.xlim([-0.05, 1.05])
-    plt.ylim([-0.05, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic example')
-    plt.legend(loc="lower right")
-    plt.show()
-
+    plot_ROCs(tprs, mean_fpr, aucs)
+        
     return model, metric_array
 
 
-
+# Build
 def get_NN(data):
 
     # Definition of Sequential model that is a linear stack of layers
@@ -332,10 +293,11 @@ def get_NN(data):
     # the model has 9 neurons in the hidden layer. Dense layer means a fully connected layer so each of the 9 neurons
     # are fully connected to the 19 input features.
     # the activation function is a relu function
-    #model.add(Dense(15,input_dim=30, activation='relu')) # this was for the cancer dataset features
     model.add(Dense(15,input_dim=data.shape[1] - 2, activation='relu'))
 
     model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu')) 
+
+    model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu'))
 
     model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu')) 
 
