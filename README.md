@@ -28,7 +28,7 @@ The dataset was created in collaboration with software company FISCAL Technologi
 # Dataset creation
 
 The dataset is based transactions with the following attributes:
-- ID
+- ID (Integer value)
 - Invoice Number (String value)
 - Invoice Date (Date value)
 - Entered Date (Date value)
@@ -39,6 +39,7 @@ The dataset is based transactions with the following attributes:
 - Base Amount (Float value)
 
 To reduce the curse of pairing dimensionality a pairing preprocessing step is performed. The transactions are grouped according to the following sets of criteria:
+
   Set 1:
   - Same numeric invoice number (All the alphabetical characters removed)
   - Same invoice date
