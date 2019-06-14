@@ -1,6 +1,6 @@
 # How to run it
 
-The script NeuralNetwork.py can be run on its own with the supplied dataset.csv and the following packages:
+Both NeuralNetwork.py and BoostedDecisionTree.py use dataset.csv as input and helpers.py as dependency. They can be both executed with the following packages installed:
 - Python (3.6.8)
 - Numpy (1.16.4)
 - Pandas (0.23.2)
