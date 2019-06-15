@@ -69,8 +69,11 @@ Each pair of transactions is then subject to a set of similarity functions:
 
 All of the above algorithms take an attribute value of both transactions as argument (eg. Invoice Number #1 and Invoice Number #2) and calculates their similarity in a variety of ways. The return is a float value between 0 and 1 with 1 meaning that the arguments are exactly the same and 0 meaning they are completely distinct. Only the binary function returns either a 1 or a 0 meaning resp. exactly the same or different.
 
+An overview of the data creation is given in a flow chart in the Figures directory.
+
 
 # Training and testing the model
 
 The script loads the data, builds the model in question and trains/tests the model according to a 5-fold cross validation scheme. The output is a plot of the ROC-curve for every fold, the average ROC-curve over all folds and average performance metrics over all folds.
 
+Two example plots are given in the Figures directory.
