@@ -37,6 +37,8 @@ The dataset is based transactions with the following attributes:
 - Supplier Name (String value)
 - Invoice Amount (Float value)
 - Base Amount (Float value)
+- User (String value)
+
 
 To reduce the curse of pairing dimensionality a pairing preprocessing step is performed. The transactions are grouped according to the following sets of criteria:
 
@@ -67,7 +69,31 @@ Each pair of transactions is then subject to a set of similarity functions:
 - Smith Waterman
 - Binary
 
-All of the above algorithms take an attribute value of both transactions as argument (eg. Invoice Number #1 and Invoice Number #2) and calculates their similarity in a variety of ways. The return is a float value between 0 and 1 with 1 meaning that the arguments are exactly the same and 0 meaning they are completely distinct. Only the binary function returns either a 1 or a 0 meaning resp. exactly the same or different.
+All of the above algorithms take an attribute value of both transactions as argument (eg. Invoice Number #1 and Invoice Number #2) and calculates their similarity in a variety of ways. The return is a float value between 0 and 1 with 1 meaning that the arguments are exactly the same and 0 meaning they are completely distinct. Only the binary function returns either a 1 or a 0 meaning resp. exactly the same or different. Additional information on the workings of the algorithms can be found in the directory SimilarityFunctions.
+
+
+The transaction attributes and similarity functions are combined in the following features:
+- Invoice Number + Jaro-Winkler
+- Invoice Number + Inverted Jaro-Winkler
+- Invoice Number + Damerau-Levenshtein
+- Invoice Number + Q-gram(2)
+- Invoice Number + Q-gram(3)
+- Invoice Number + Longest Common Substring(2)
+- Invoice Number + Longest Common Substring(3)
+- Invoice Number + Smith Waterman
+- Supplier Name + Jaro-Winkler
+- Supplier Name + Damerau-Levenshtein
+- Supplier Name + Q-gram(2)
+- Supplier Name + Q-gram(3)
+- Supplier Name + Longest Common Substring(2)
+- Supplier Name + Longest Common Substring(3)
+- Supplier Name + Longest Common Substring(4)
+- Supplier Reference + Binary
+- Base amount + Binary
+- Entered Date + Binary
+- Paid Date + Binary
+- User + Binary
+
 
 An overview of the data creation is given in a flow chart in the Figures directory.
 
