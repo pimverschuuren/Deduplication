@@ -241,7 +241,7 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
 
             # Fit on the training data. Epochs and batch size
             # are the result of a grid search.
-            model.fit(X_train, y_train, epochs=120, batch_size=100)
+            model.fit(X_train, y_train, epochs=160, batch_size=100)
 
             # Predict on the test data.
             y_pred = model.predict_proba(X_test)
@@ -284,34 +284,35 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
     return model, metric_array
 
 
-# Build
+# Build the neural network with the keras library. All
+# the hyperparameters are optimized with a grid search.
 def get_NN(data):
 
-    # Definition of Sequential model that is a linear stack of layers
+    # Define the neural network object.
     model = Sequential()
 
-    # the model has 9 neurons in the hidden layer. Dense layer means a fully connected layer so each of the 9 neurons
-    # are fully connected to the 19 input features.
-    # the activation function is a relu function
+    # Add the input layer.
     model.add(Dense(15,input_dim=data.shape[1] - 2, activation='relu'))
 
-    model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu')) 
+    # Add the first hidden layer.
+    model.add(Dense(output_dim = 30, init = 'he_uniform', activation = 'relu')) 
 
-    model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu'))
+    # Add the second hidden layer.
+    #model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu'))
 
-    model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu')) 
+    # Add the third hidden layers.
+    #model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu')) 
 
-    # the output layer is a dense layer with the sigmoid activation that convert a real valued input into a binaary output
+    # Add the output layer.
     model.add(Dense(1,activation='sigmoid'))
 
-    # Compile the model by defining the optimizer, loss function and the metric to evaluate the model performances
-    # the loss function is binary_crossentropy (standard for binary classification)
-    # optimizer rmsprop upgrade from normal gradient descent algorithm
+    # Compile the model.
     model.compile(loss='binary_crossentropy',optimizer=adam_optimizer(0.01),metrics=['accuracy'])
 
     return model
 
-
+# Build the boosted decision tree with the scikitlearn library.
+# All the hyperparameters were optimized with a grid search.
 def get_BDT():
 
     # Define the Boosted Decision Tree model.

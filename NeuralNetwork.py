@@ -18,7 +18,6 @@ model = get_NN(data)
 # cross-validation scheme.
 model, p_metrics = cross_val_KFold(5, model, data, 0.5)
 
-
 # Calculate and print the performance metric averages
 # and standard deviations based on all folds.
 calculate_mean_sd(p_metrics)
