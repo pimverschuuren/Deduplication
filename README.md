@@ -11,7 +11,7 @@ Both NeuralNetwork.py and BoostedDecisionTree.py use dataset.csv as input and he
 
 Next to the package the version is given on which the script is tested. Scripts can be run by the command:
 
-    python NeuralNetwork.py
+2    python NeuralNetwork.py
     
     python BoostedDecisionTree.py
     
