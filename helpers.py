@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from scipy import interp
 
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
 from sklearn.base import clone
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.ensemble import GradientBoostingClassifier
@@ -24,6 +24,71 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras import optimizers
 
+def get_ROC(dataset):
+
+
+    y = dataset[['duplicate','duplicate probability']]
+    
+    y_t = np.arange(y.shape[0], dtype=float)
+    y_p = np.arange(y.shape[0], dtype=float)
+    count = 0
+
+
+    for index, row in y.iterrows():
+        y_t[count] = row['duplicate']
+        y_p[count] = row['duplicate probability']
+        count = count + 1
+
+    
+    # Calculate the ROC-curve for this fold.
+    fpr, tpr, thresholds = roc_curve(y_t, y_p)
+
+        
+    # Calculate the AUC of the ROC-curve.
+    roc_auc = auc(fpr, tpr)
+
+    return roc_auc, fpr, tpr
+    
+def multi_ROC(FISCAL, BDT, NN):
+
+    roc_FISCAL, fpr_FISCAL, tpr_FISCAL = get_ROC(FISCAL)
+    roc_BDT, fpr_BDT, tpr_BDT = get_ROC(BDT)
+    roc_NN, fpr_NN, tpr_NN = get_ROC(NN)
+
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',label='Chance', alpha=.8)
+
+    plt.plot(fpr_FISCAL, tpr_FISCAL, color='b',label=r'ROC FISCAL (AUC = %0.3f)' % (roc_FISCAL),lw=2, alpha=.8)
+    plt.plot(fpr_NN, tpr_NN, color='c',label=r'ROC NN (AUC = %0.3f)' % (roc_NN),lw=2, alpha=.8)
+    plt.plot(fpr_BDT, tpr_BDT, color='m',label=r'ROC BDT (AUC = %0.3f)' % (roc_BDT),lw=2, alpha=.8)
+    
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('Sensitivity')
+    plt.title('Receiver Operating Characteristic')
+    plt.legend(loc="lower right")
+    plt.show()
+
+
+def plot_hist(dataset):
+
+    y = dataset[['duplicate','duplicate probability']]
+
+    y_t = np.arange(y.shape[0], dtype=float)
+    y_p = np.arange(y.shape[0], dtype=float)
+    count = 0
+
+    y_dup = []
+    y_ndup = []
+
+    for index, row in y.iterrows():
+        if row['duplicate'] > 0:
+            y_dup.append(row['duplicate probability'])
+        else:
+            y_ndup.append(row['duplicate probability'])
+
+    plt.hist(y_ndup, bins = 40)
+    plt.show()
 
 # Calculate and print the mean and standard deviation
 # along the columns of the passed array. This function
@@ -62,6 +127,37 @@ def calculate_mean_sd(metric_array):
             
         print(score_str + str(np.mean(arr, axis = 0)) + '  +-  ' + str(np.std(arr, axis=0)))
 
+
+def perf_metrics(dataset, threshold):
+    
+    y = dataset[['duplicate','duplicate probability']]
+
+    y_t = np.arange(y.shape[0], dtype=float)
+    y_p = np.arange(y.shape[0], dtype=float)
+    count = 0
+
+    for index, row in y.iterrows():
+        y_t[count] = row['duplicate']
+        y_p[count] = row['duplicate probability']
+        count = count + 1
+
+    return calculate_performance_metrics(y_t, y_p, threshold)
+
+def plot_metric(thresholdlist, metriclist):
+    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',label='Chance', alpha=.8)
+    
+    plt.plot(thresholdlist, metriclist, color='b',label=r'Metric',lw=2, alpha=.8)
+
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
+    plt.xlabel('Threshold prob.')
+    plt.ylabel('Metric')
+    #plt.title('Receiver Operating Characteristic')
+    plt.legend(loc="lower right")
+    plt.show()
+
+
+        
 # Calculate the accuracy, false postive rate, false negative rate,
 # sensitivity and specificity based on a list of true labels,
 # a list of predicted probabilities and a probability threshold.
@@ -80,22 +176,22 @@ def calculate_performance_metrics(true_labels, pred_prob, threshold):
 
     # Use the scikitlearn library to calculate the
     # confusion matrix.
-    cm = confusion_matrix(list(true_labels), list(pred_class))
-
+    tn, fp, fn, tp = confusion_matrix(list(true_labels), list(pred_class)).ravel()
+    
     # Calculate the accuracy.
-    acc = (np.trace(cm))/np.sum(cm)
+    acc = (tn + tp)/(tn+tp+fp+fn)
 
     # Calculate the false positive rate.
-    fpr = cm[0][1]/(cm[0][1] + cm[1][1])
+    fpr = fp / (fp + tn)
 
     # Calculate the false negative rate.
-    fnr = cm[1][0]/(cm[1][0] + cm[0][0])
-
+    fnr = fn / (fn + tp)
+    
     # Calculate the sensitivity.
-    sens = cm[1][1] / (cm[1][1] + cm[1][0])
+    sens = tp / (tp + fn)
 
     # Calculate the specificity.
-    spec = cm[0][0] / (cm[0][0] + cm[0][1])
+    spec = tn / (tn + fp)
 
     # Pass back a list with all the metrics.
     return [acc, fpr, fnr, sens, spec]
@@ -134,6 +230,7 @@ def split_data(data):
     return X, y, X_t, y_t
 
 
+
 # This function plots multiple ROC-curves, their average
 # and standard deviation.
 def plot_ROCs(tprs, mean_fpr, aucs):
@@ -158,7 +255,7 @@ def plot_ROCs(tprs, mean_fpr, aucs):
     plt.xlim([-0.05, 1.05])
     plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
+    plt.ylabel('Sensitivity')
     plt.title('Receiver Operating Characteristic')
     plt.legend(loc="lower right")
     plt.show()
@@ -173,6 +270,7 @@ def read_csvfile(file_loc):
                  encoding="ISO-8859-1",
                  low_memory=False)
     return df
+
 
 # Train and test a passed BDT/NN model.
 # The arguments define the number of folds for the
@@ -223,6 +321,7 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
             fit_model = clone(model)
 
             # Fit on the training data.
+            print("Training boosted decision tree for fold "+str(i))
             fit_model.fit(X_train, y_train)
 
             # Predict on the test data.
@@ -241,6 +340,7 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
 
             # Fit on the training data. Epochs and batch size
             # are the result of a grid search.
+            print("Training neural network for fold "+str(i))
             model.fit(X_train, y_train, epochs=160, batch_size=100)
 
             # Predict on the test data.
@@ -281,7 +381,7 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
 
     plot_ROCs(tprs, mean_fpr, aucs)
         
-    return model, metric_array
+    return metric_array
 
 
 # Build the neural network with the keras library. All
@@ -292,7 +392,7 @@ def get_NN(data):
     model = Sequential()
 
     # Add the input layer.
-    model.add(Dense(15,input_dim=data.shape[1] - 2, activation='relu'))
+    model.add(Dense(30,input_dim=data.shape[1] - 2, activation='relu'))
 
     # Add the first hidden layer.
     model.add(Dense(output_dim = 30, init = 'he_uniform', activation = 'relu')) 
@@ -317,7 +417,7 @@ def get_BDT():
 
     # Define the Boosted Decision Tree model.
     model = GradientBoostingClassifier(criterion='friedman_mse', init=None,
-          learning_rate=0.2, loss='deviance', max_depth=5,
-          n_estimators=250, random_state=0)
+          learning_rate=0.1, loss='deviance', max_depth=4,
+          n_estimators=200, random_state=0)
 
     return model
