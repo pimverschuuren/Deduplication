@@ -14,7 +14,7 @@ Next to the package the version is given on which the script is tested. When ins
 
     python 5FoldCrossValidation.py
     
-    python ClientValidation.py
+    python ImbalancedValidation.py
     
     
 The script helpers.py contains helper functions for the above scripts, the directories SimilarityFunctions and data contain resp. the similarity functions used to build the data and the data that is used as input for the two above scripts.
