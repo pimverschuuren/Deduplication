@@ -11,21 +11,22 @@ import numpy as np
 
 import pandas as pd
 
+
 import matplotlib.pyplot as plt
 
 from scipy import interp
 
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.base import clone
-from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
 from sklearn.ensemble import GradientBoostingClassifier
 
 from keras.models import Sequential
 from keras.layers import Dense
 from keras import optimizers
 
-def get_ROC(dataset):
 
+def split_label_pred(dataset):
 
     y = dataset[['duplicate','duplicate probability']]
     
@@ -33,12 +34,18 @@ def get_ROC(dataset):
     y_p = np.arange(y.shape[0], dtype=float)
     count = 0
 
-
     for index, row in y.iterrows():
         y_t[count] = row['duplicate']
         y_p[count] = row['duplicate probability']
         count = count + 1
+    
+    return y_t, y_p
 
+def get_ROC(dataset):
+
+    # Split the labels and classifier output in two
+    # seperate columns.
+    y_t, y_p = split_label_pred(dataset)
     
     # Calculate the ROC-curve for this fold.
     fpr, tpr, thresholds = roc_curve(y_t, y_p)
@@ -48,12 +55,14 @@ def get_ROC(dataset):
     roc_auc = auc(fpr, tpr)
 
     return roc_auc, fpr, tpr
-    
+
 def multi_ROC(FISCAL, BDT, NN):
 
-    roc_FISCAL, fpr_FISCAL, tpr_FISCAL = get_ROC(FISCAL)
     roc_BDT, fpr_BDT, tpr_BDT = get_ROC(BDT)
+
     roc_NN, fpr_NN, tpr_NN = get_ROC(NN)
+
+    roc_FISCAL, fpr_FISCAL, tpr_FISCAL = get_ROC(FISCAL)
 
     plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',label='Chance', alpha=.8)
 
@@ -65,30 +74,90 @@ def multi_ROC(FISCAL, BDT, NN):
     plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('Sensitivity')
-    plt.title('Receiver Operating Characteristic')
+    plt.title('Receiver Operating Characteristic Curve')
     plt.legend(loc="lower right")
-    plt.show()
+    plt.savefig("multiROC.pdf")
 
+def plot_PRs(sens_scores, prec_scores):
 
-def plot_hist(dataset):
+    fiscal_sens_scores = sens_scores[:,0]
+    BDT_sens_scores = sens_scores[:,1]
+    NN_sens_scores = sens_scores[:,2]
 
-    y = dataset[['duplicate','duplicate probability']]
+    fiscal_prec_scores = prec_scores[:,0]
+    BDT_prec_scores = prec_scores[:,1]
+    NN_prec_scores = prec_scores[:,2]
 
-    y_t = np.arange(y.shape[0], dtype=float)
-    y_p = np.arange(y.shape[0], dtype=float)
+    fiscal_prec_scores = np.nan_to_num(fiscal_prec_scores)
+    BDT_prec_scores = np.nan_to_num(BDT_prec_scores)
+    NN_prec_scores = np.nan_to_num(NN_prec_scores)
+
+    auc_FISCAL=auc(fiscal_sens_scores, fiscal_prec_scores)
+    auc_NN=auc(NN_sens_scores, NN_prec_scores)
+    auc_BDT=auc(BDT_sens_scores, BDT_prec_scores)
+
+    plt.clf()
+    
+    plt.plot(fiscal_sens_scores, fiscal_prec_scores, color='b',label=r'ROC FISCAL (AUC = %0.3f)' % (auc_FISCAL),lw=2, alpha=.8)
+    plt.plot(NN_sens_scores, NN_prec_scores, color='c',label=r'ROC NN (AUC = %0.3f)' % (auc_NN),lw=2, alpha=.8)
+    plt.plot(BDT_sens_scores, BDT_prec_scores, color='m',label=r'ROC BDT (AUC = %0.3f)' % (auc_BDT),lw=2, alpha=.8)
+    
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 0.3])
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall Curve')
+    plt.legend(loc="upper right")
+    plt.savefig("multiPR.pdf")
+
+def plot_multihist(FISCAL, BDT, NN):
+
+    y_FISCAL = FISCAL[['duplicate','duplicate probability']]
+    y_BDT = BDT[['duplicate','duplicate probability']]
+    y_NN = NN[['duplicate','duplicate probability']]
+
+    y_FISCAL_t = np.arange(y_FISCAL.shape[0], dtype=float)
+    y_FISCAL_p = np.arange(y_FISCAL.shape[0], dtype=float)
+    y_BDT_t = np.arange(y_BDT.shape[0], dtype=float)
+    y_BDT_p = np.arange(y_BDT.shape[0], dtype=float)
+    y_NN_t = np.arange(y_NN.shape[0], dtype=float)
+    y_NN_p = np.arange(y_NN.shape[0], dtype=float)
     count = 0
 
-    y_dup = []
-    y_ndup = []
+    y_FISCAL_dup = []
+    y_FISCAL_ndup = []
+    y_BDT_dup = []
+    y_BDT_ndup = []
+    y_NN_dup = []
+    y_NN_ndup = []
 
-    for index, row in y.iterrows():
+    for index, row in y_FISCAL.iterrows():
         if row['duplicate'] > 0:
-            y_dup.append(row['duplicate probability'])
+            y_FISCAL_dup.append(row['duplicate probability'])
         else:
-            y_ndup.append(row['duplicate probability'])
+            y_FISCAL_ndup.append(row['duplicate probability'])
 
-    plt.hist(y_ndup, bins = 40)
-    plt.show()
+    for index, row in y_BDT.iterrows():
+        if row['duplicate'] > 0:
+            y_BDT_dup.append(row['duplicate probability'])
+        else:
+            y_BDT_ndup.append(row['duplicate probability'])
+
+    for index, row in y_NN.iterrows():
+        if row['duplicate'] > 0:
+            y_NN_dup.append(row['duplicate probability'])
+        else:
+            y_NN_ndup.append(row['duplicate probability'])
+
+    plt.hist(y_BDT_ndup, bins = 40,label='BDT')
+    plt.hist(y_NN_ndup, bins = 40,label='NN')
+    plt.hist(y_FISCAL_ndup, bins = 40,label='FISCAL')
+    plt.legend(loc="upper right")
+    plt.xlabel("Classifier Output")
+    plt.ylabel("Nr. Non-Duplicates")
+    plt.savefig("nondupoutput.pdf")
+    
+
 
 # Calculate and print the mean and standard deviation
 # along the columns of the passed array. This function
@@ -97,7 +166,7 @@ def calculate_mean_sd(metric_array):
 
     
     print('=============  '+str(len(metric_array)) + '-fold cross validation results  ===========')
-
+    
     # Loop over every performance metric.
     for x in range(len(metric_array[0])):
 
@@ -127,37 +196,96 @@ def calculate_mean_sd(metric_array):
             
         print(score_str + str(np.mean(arr, axis = 0)) + '  +-  ' + str(np.std(arr, axis=0)))
 
-
-def perf_metrics(dataset, threshold):
-    
-    y = dataset[['duplicate','duplicate probability']]
-
-    y_t = np.arange(y.shape[0], dtype=float)
-    y_p = np.arange(y.shape[0], dtype=float)
-    count = 0
-
-    for index, row in y.iterrows():
-        y_t[count] = row['duplicate']
-        y_p[count] = row['duplicate probability']
-        count = count + 1
-
-    return calculate_performance_metrics(y_t, y_p, threshold)
-
-def plot_metric(thresholdlist, metriclist):
-    plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',label='Chance', alpha=.8)
-    
-    plt.plot(thresholdlist, metriclist, color='b',label=r'Metric',lw=2, alpha=.8)
-
-    plt.xlim([-0.05, 1.05])
-    plt.ylim([-0.05, 1.05])
-    plt.xlabel('Threshold prob.')
-    plt.ylabel('Metric')
-    #plt.title('Receiver Operating Characteristic')
-    plt.legend(loc="lower right")
-    plt.show()
-
-
         
+def plot_precision(thresholds, precisions, name):
+    
+    plt.clf()
+    plt.plot(thresholds, precisions,lw=2, alpha=.8)
+
+    plt.xlim([0., 1.])
+    plt.ylim([0., 0.3])
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('Precision')
+    plt.title('')
+    plt.savefig(name)
+
+def plot_fpr(thresholds, fprs, name):
+    
+    plt.clf()
+    plt.plot(thresholds, fprs,lw=2, alpha=.8)
+
+    plt.xlim([0., 1.])
+    plt.ylim([0., 1.05])
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('False Positive Rate')
+    plt.title('')
+    plt.savefig(name)
+
+def plot_fnr(thresholds, fnrs, name):
+    
+    plt.clf()
+    plt.plot(thresholds, fnrs,lw=2, alpha=.8)
+
+    plt.xlim([0., 1.])
+    plt.ylim([0., 1.05])
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('False Negative Rate')
+    plt.title('')
+    plt.savefig(name)
+
+    
+def plot_sensitivity(thresholds, sensitivities, name):
+    
+    plt.clf()
+    plt.plot(thresholds, sensitivities,lw=2, alpha=.8)
+
+    plt.xlim([0., 1.])
+    plt.ylim([0., 1.05])
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('Sensitivity')
+    plt.title('')
+    plt.savefig(name)
+
+def plot_conf(thresholds,tps,fps,fns,tns,file_name):
+
+    plt.clf()
+    
+    plt.plot(thresholds, tps, color='green',label=r'True Positives',lw=2, alpha=.8)
+    plt.plot(thresholds, fps, color='orange',label=r'False Positives',lw=2, alpha=.8)
+    plt.plot(thresholds, fns, color='red',label=r'False Negatives',lw=2, alpha=.8)
+    plt.plot(thresholds, tns, color='blue',label=r'True Negatives',lw=2, alpha=.8)
+
+    tps = np.where(tps==0, 0.00001, tps)
+    fps = np.where(fps==0, 0.00001, fps)
+    fns = np.where(fns==0, 0.00001, fns)
+    tns = np.where(tns==0, 0.00001, tns)
+    
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.00001, 1e7])
+    plt.ylabel("Invoice Pairs")
+    plt.xlabel("Probability Threshold")
+    plt.yscale("log")
+    plt.legend(loc="upper right")
+    plt.savefig(file_name)
+    
+    
+def calculate_conf(true_labels, pred_prob, threshold):
+
+    # Set a threshold of 0.5 to convert the values to binary output.
+    pred_class = (pred_prob > threshold)
+
+    # Convert the binary output to integer type.
+    pred_class = pred_class.astype(int)
+
+    # Convert the outputs to a 1d-vectors of values.
+    pred_class = pred_class.ravel()
+    true_labels = true_labels.ravel()
+
+    # Use the scikitlearn library to calculate the
+    # confusion matrix.
+    return confusion_matrix(list(true_labels), list(pred_class)).ravel()
+    
+
 # Calculate the accuracy, false postive rate, false negative rate,
 # sensitivity and specificity based on a list of true labels,
 # a list of predicted probabilities and a probability threshold.
@@ -170,7 +298,6 @@ def calculate_performance_metrics(true_labels, pred_prob, threshold):
     pred_class = pred_class.astype(int)
 
     # Convert the outputs to a 1d-vectors of values.
-    pred_class = pred_class.ravel()
     pred_class = pred_class.ravel()
     true_labels = true_labels.ravel()
 
@@ -193,8 +320,11 @@ def calculate_performance_metrics(true_labels, pred_prob, threshold):
     # Calculate the specificity.
     spec = tn / (tn + fp)
 
+    # Calculate the precision.
+    prec = tp / (tp + fp)
+
     # Pass back a list with all the metrics.
-    return [acc, fpr, fnr, sens, spec]
+    return [acc, fpr, fnr, sens, spec, prec]
 
 # This function defines the optimization algorithm
 # used in the training of the neural network.
@@ -229,15 +359,98 @@ def split_data(data):
 
     return X, y, X_t, y_t
 
+def plot_Fs(thresholds, f_scores, max_scores):
 
+    fiscal_scores = f_scores[:,0]
+    BDT_scores = f_scores[:,1]
+    NN_scores = f_scores[:,2]
+
+    max_thres_fiscal = max_scores[0][0]
+    max_thres_BDT = max_scores[1][0]
+    max_thres_NN = max_scores[2][0]
+
+    max_score_fiscal = max_scores[0][1]
+    max_score_BDT = max_scores[1][1]
+    max_score_NN = max_scores[2][1]
+
+    plt.clf()
+    plt.hlines(max_score_fiscal,0,1,linestyle='--', color='b',label=r'Max. FISCAL = %0.3f' % max_score_fiscal , alpha=.8)
+    plt.hlines(max_score_BDT,0,1,linestyle='--', color='m',label=r'Max. BDT = %0.3f' % max_score_BDT, alpha=.8)
+    plt.hlines(max_score_NN,0,1,linestyle='--', color='c',label=r'Max. NN = %0.3f' % max_score_NN, alpha=.8)
+    
+    plt.plot(thresholds, fiscal_scores, color='b',label='FISCAL')
+    plt.plot(thresholds, BDT_scores, color='m',label='BDT')
+    plt.plot(thresholds, NN_scores, color='c',label='NN')
+
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('F-score')
+    plt.ylim(0,1)
+    plt.legend(loc="upper right")
+    plt.savefig("F_scores.pdf")
+
+def plot_accs(thresholds, acc_scores):
+
+    fiscal_scores = acc_scores[:,0]
+    BDT_scores = acc_scores[:,1]
+    NN_scores = acc_scores[:,2]
+
+    plt.clf()
+    
+    plt.plot(thresholds, fiscal_scores, color='b',label='FISCAL')
+    plt.plot(thresholds, BDT_scores, color='m',label='BDT')
+    plt.plot(thresholds, NN_scores, color='c',label='NN')
+
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('Accuracy')
+    plt.ylim(0,1.0)
+    plt.legend(loc="upper left")
+    plt.savefig("acc_scores.pdf")
+
+def plot_sens(thresholds, sens_scores):
+
+    fiscal_scores = sens_scores[:,0]
+    BDT_scores = sens_scores[:,1]
+    NN_scores = sens_scores[:,2]
+
+    plt.clf()
+    
+    plt.plot(thresholds, fiscal_scores, color='b',label='FISCAL')
+    plt.plot(thresholds, BDT_scores, color='m',label='BDT')
+    plt.plot(thresholds, NN_scores, color='c',label='NN')
+
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('Sensitivity')
+    plt.ylim(0,1.05)
+    plt.legend(loc="upper right")
+    plt.savefig("sens_scores.pdf")
+
+def plot_precs(thresholds, prec_scores):
+
+    fiscal_scores = prec_scores[:,0]
+    BDT_scores = prec_scores[:,1]
+    NN_scores = prec_scores[:,2]
+    
+    plt.plot(thresholds, fiscal_scores, color='b',label='FISCAL')
+    plt.plot(thresholds, BDT_scores, color='m',label='BDT')
+    plt.plot(thresholds, NN_scores, color='c',label='NN')
+
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('Precision')
+    plt.ylim(0,0.3)
+    plt.legend(loc="upper right")
+    plt.savefig("prec_scores.pdf")
+
+    
 
 # This function plots multiple ROC-curves, their average
 # and standard deviation.
-def plot_ROCs(tprs, mean_fpr, aucs):
+def plot_ROCs(tprs, mean_fpr, aucs, model_name):
 
+    plt.clf()
+    
     plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
          label='Chance', alpha=.8)
-    
+
     mean_tpr = np.mean(tprs, axis=0)
     mean_tpr[-1] = 1.0
     mean_auc = auc(mean_fpr, mean_tpr)
@@ -245,20 +458,20 @@ def plot_ROCs(tprs, mean_fpr, aucs):
     plt.plot(mean_fpr, mean_tpr, color='b',
              label=r'Mean ROC (AUC = %0.3f $\pm$ %0.3f)' % (mean_auc, std_auc),
              lw=2, alpha=.8)
-    
+
     std_tpr = np.std(tprs, axis=0)
     tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
     tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
     plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
                      label=r'$\pm$ 1 std. dev.')
-    
+
     plt.xlim([-0.05, 1.05])
     plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('Sensitivity')
     plt.title('Receiver Operating Characteristic')
     plt.legend(loc="lower right")
-    plt.show()
+    plt.savefig("ROCs_"+str(model_name)+".pdf")
 
 
 
@@ -277,7 +490,7 @@ def read_csvfile(file_loc):
 # cross-validation scheme, the subjected model, a
 # dataframe that contains the train/test data and a
 # probability threshold.
-def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
+def cross_val_KFold(n_folds, model, data, prob_threshold, model_name):
 
     # Get the train/test data in the right format.
     X, y, X_t, y_t = split_data(data)
@@ -321,7 +534,7 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
             fit_model = clone(model)
 
             # Fit on the training data.
-            print("Training boosted decision tree for fold "+str(i))
+            #print("Training boosted decision tree for fold "+str(i))
             fit_model.fit(X_train, y_train)
 
             # Predict on the test data.
@@ -379,8 +592,9 @@ def cross_val_KFold(n_folds, model, data, prob_threshold  : float = 0.5):
         
         i += 1
 
-    plot_ROCs(tprs, mean_fpr, aucs)
-        
+    plot_ROCs(tprs, mean_fpr, aucs, model_name)
+
+    
     return metric_array
 
 
@@ -396,12 +610,6 @@ def get_NN(data):
 
     # Add the first hidden layer.
     model.add(Dense(output_dim = 30, init = 'he_uniform', activation = 'relu')) 
-
-    # Add the second hidden layer.
-    #model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu'))
-
-    # Add the third hidden layers.
-    #model.add(Dense(output_dim = 15, init = 'he_uniform', activation = 'relu')) 
 
     # Add the output layer.
     model.add(Dense(1,activation='sigmoid'))
